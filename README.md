@@ -1,2 +1,1 @@
-# employee_burnout
-Are your employees burning out?
+# Are your employee burning out?
