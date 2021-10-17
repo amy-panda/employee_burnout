@@ -1,7 +1,7 @@
 ---
 title: "Are your employees burning out?"
 author: "Amy Yang"
-date: "16/10/2021"
+date: "17/10/2021"
 output:
   html_document:
     number_sections: no
@@ -26,7 +26,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Introduction
 
-This R Markdown file is to demonstrate the idea of Adjustment using the dataset of employee burnout rate from [Kaggle](https://www.kaggle.com/blurredmachine/are-your-employees-burning-out). As explained by Brian in [Regression Models for Data Science in R](https://leanpub.com/regmods/read#leanpub-auto-adjustment), adjustment describes how the third variable impact the relationship between another two in a linear model. 
+This R Markdown file is to demonstrate the idea of Adjustment using the dataset of employee burnout rate from [Kaggle](https://www.kaggle.com/blurredmachine/are-your-employees-burning-out). As explained by Brian in [Regression Models for Data Science in R](https://leanpub.com/regmods/read#leanpub-auto-adjustment), adjustment describes how the third variable impacts the relationship between another two in a linear model. 
 
 ## Data Tidying and Visualisation
 
@@ -41,13 +41,20 @@ library(janitor)
 ```{r, message=FALSE, warning=FALSE}
 # Import csv file
 e_burnout <- read_csv("employee_burn_out_rate.csv")
-e_burnout <-clean_names(e_burnout)
+
 
 ```
 
 ```{r, message=FALSE, warning=FALSE}
-# View the data structure
+# Clean and view the column names
+e_burnout <-clean_names(e_burnout)
 names(e_burnout)
+
+```
+
+
+```{r, message=FALSE, warning=FALSE}
+# View the data structure
 glimpse(e_burnout)
 
 ```
@@ -57,14 +64,14 @@ There are 9 variables in the dataset including both categorical and numerical va
 -  Gender: Male or Female
 -  Company Type: Service or Product
 -  WFH Setup Available: Yes or No
--  Designation: The designation of the employee of work in the organization with range of [0.0,5.0]. Bigger value refers to higher designation.
--  Resource Allocation: The amount of resource allocated to employees to work,for example working hours, with range of [1.0,10.0]. Higer value means more resources.
--  Mental Fatigue Score: The level of fatigue mentally employees is facing, with range of [0.0,10.0], where 0.0 means no fatigue and 10.0 means completely fatigue.
--  Burn Rate: the rate of burnout while working with range of [0.0,10.0]. Higher value means more burn out. 
+-  Designation: The designation of the employee of work in the organization with range of [0.0, 5.0]. Bigger value refers to higher designation.
+-  Resource Allocation: The amount of resource allocated to employees to work, for example working hours, with range of [1.0, 10.0]. Higher value means more resources.
+-  Mental Fatigue Score: The level of fatigue mentally employees is facing, with range of [0.0, 10.0], where 0.0 means no fatigue and 10.0 means completely fatigue.
+-  Burn Rate: the rate of burnout while working with range of [0.0, 10.0]. Higher value means more burnout. 
 
 
 ```{r, message=FALSE, warning=FALSE}
-# convert the data format
+# convert the data format to date
 e_burnout$date_of_joining <- as.Date(e_burnout$date_of_joining,"%d/%m/%Y")
 
 ```
@@ -80,13 +87,13 @@ e_burnout_clean <- drop_na(e_burnout)
 
 ```
 
-To visualise the correlation matrix with `corrplot()`, the following categorical variables are assigned to be 0 or 1.
+To visualise the correlation matrix with `corrplot()`, the following categorical variables were assigned to be 0 or 1.
 
 -  Gender: Female is 1 and Male is 0
 -  Company Type: Service is 1 and Product is 0
 -  WFH Setup Available: Yes is 1 and No is 0
 
-Also, the variable *countdays* is calculated as the time period (days) between today's date and employee's joining date. 
+Also, the variable *countdays* was calculated as the time period (days) between today's date and employee's joining date. 
 
 ```{r, message=FALSE, warning=FALSE}
 
@@ -105,7 +112,7 @@ glimpse(e_burnout_num)
 
 ```{r, message=FALSE, warning=FALSE}
 
-# Correlation
+# Correlation matrix with corrplot
 e_burnout_sub <- 
   e_burnout_num %>% 
   select(isfemale,isservice,iswfh,countdays,designation,resource_allocation,mental_fatigue_score,burn_rate)
@@ -115,26 +122,20 @@ corrplot(corr_burnout, type = "upper", tl.col = "darkblue", tl.srt = 45,
 
 ```
 
-As shown in the correlation matrix, employee burnout rate was strongly associated with the level of mental fatigue, allocated resources and the position within the organisation. Among the remaining 4 variables, the availability for work from home setup had the most positive impact on reducing the burnout for employees.
+It was found from the correlation matrix, employee burnout rate was strongly associated with the level of mental fatigue, allocated resources and the designation within the organisation. Among the remaining 4 variables, the availability for work from home setup had the greatest impact on reducing the burnout for employees.
 
 ## Adjustment
 
+First, a linear regression model was built to explain the burnout rate with the variable work from home(wfh) setup availability. As shown in the summary below, wfh setup availability was highly significant with a p-value less than 0.001. 
 
 ```{r}
-# Model with work from home(wfh) setup availability and visualise the model
+# Model with wfh setup availability
 lm_w <- lm(burn_rate ~ iswfh, data = e_burnout_num)
 summary(lm_w)
-e_burnout_wfh <- e_burnout_num %>% filter(iswfh==1)
-e_burnout_notwfh <- e_burnout_num %>% filter(iswfh==0)
-ggplot(e_burnout_num,aes(x=as.factor(iswfh),y=burn_rate))+
-  geom_point(aes(color=wfh_setup_available))+
-  geom_hline(yintercept = mean(e_burnout_wfh$burn_rate), color = "aquamarine2", lwd = 1, lty = 2) +
-  geom_hline(yintercept = mean(e_burnout_notwfh$burn_rate), color = "pink", lwd = 1, lty = 2)+
-  labs(x="Whether work from home facility is available", y="Employee burnout rate",color="WFH setup available")+
-  theme_bw()
 
 ```
 
+We then added the regressor Mental fatigue score into the model and looked at its impact on the relationship between wfh set availability and employee burnout rate.
 
 ```{r}
 # Model with mental fatigue score
@@ -146,6 +147,8 @@ lm_mw <- lm(burn_rate ~ mental_fatigue_score+iswfh, data = e_burnout_num)
 summary(lm_mw)
 
 # Visualise the adjustment by adding the variable mental fatigue score
+e_burnout_wfh <- e_burnout_num %>% filter(iswfh==1)
+e_burnout_notwfh <- e_burnout_num %>% filter(iswfh==0)
 ggplot(e_burnout_num,aes(mental_fatigue_score,burn_rate))+
   geom_point(aes(color=wfh_setup_available))+
   geom_hline(yintercept = mean(e_burnout_wfh$burn_rate), color = "aquamarine2", lwd = 1, lty = 2) +
@@ -153,10 +156,14 @@ ggplot(e_burnout_num,aes(mental_fatigue_score,burn_rate))+
   geom_abline(intercept = coef(lm_mw)[1]+coef(lm_mw)[3], slope = coef(lm_mw)[2], color = "aquamarine2", lwd = 1.5) +
   geom_abline(intercept = coef(lm_mw)[1], slope = coef(lm_mw)[2], color = "pink", lwd = 1.5) +
   geom_abline(intercept = coef(lm_m)[1], slope = coef(lm_m)[2])+
-  labs(x="Mental Fatigue Score",y="Employee burnout rate",color="WFH setup available")+
+  labs(x="Mental fatigue score",y="Employee burnout rate",color="WFH setup available")+
   theme_bw()
 
 ```
+
+This plot revealed that the variable Mental fatigue score was closely related to whether the wfh facility was available for employees. The Mental fatigue score was more likely to be higher when wfh setup was not available. This is similar to Experiment 2 discussed in [Regression Models](https://leanpub.com/regmods/read#leanpub-auto-adjustment) although in our case there was some vertical overlap between the red and green points. If the variable Mental fatigue score was disregarded, employees without wfh setup availability had noticeably higher burnout rate compared to the counterparts with wfh facility. However, if we accounted for the variable Mental fatigue score, the difference in burnout rate between these two groups was almost gone. The effect of wfh setup availability on burnout rate was largely explained by the Mental fatigue score. This could also be seen from the result of model lm_m showing 89.19% variability of burnout rate was explained by the model.
+
+Using the same approach, we explored the impact on the relationship between wfh setup availability and burnout rate by adding the variable Resource allocation and Designation respectively into the model.
 
 ```{r}
 # Model with resource allocation
@@ -180,6 +187,7 @@ ggplot(e_burnout_num,aes(resource_allocation,burn_rate))+
 
 ```
 
+
 ```{r}
 #Model with designation
 lm_d <- lm(burn_rate ~ designation, data = e_burnout_num)
@@ -202,8 +210,11 @@ ggplot(e_burnout_num,aes(designation,burn_rate))+
 
 ```
 
+Looking at the plots above,the marginal(ignoring Resource allocation/Designation) and conditional (using Resource allocation/Designation) associations differ. This finding is similar to what we discovered by adding the variable Mental fatigue score. When Resource allocation/Designation was ignored, the marginal mean for burnout rate of the group without wfh facility was around 0.12 higher over the group with wfh facility. However,the difference in intercept between these two groups was narrowed down to 0.027 and 0.057 respectively when Resource allocation 
+or Designation was accounted into the model.
 
 
+## Conclusion
 
-
+The idea of Adjustment helps us understand the effect on the relationship between a predictor and response when other variables are accounted for in multivariable regression analysis. This R Markdown used the dataset of employee burnout rate and illustrated how the relationship between the work from home setup availability and employee burnout rate was impacted by the additional variables Mental fatigue score, Resource allocation and Designation separately. 
 
